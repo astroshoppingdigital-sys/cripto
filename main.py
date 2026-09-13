@@ -1,46 +1,26 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import mercadopago
-import os
+from pydantic import BaseModel, Field, field_validator
 
 app = FastAPI()
 
-access_token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "SEU_ACCESS_TOKEN_AQUI")
-sdk = mercadopago.SDK(access_token)
+class WalletTransaction(BaseModel):
+    name: str = Field(..., description="Nome do usuário ou identificação")
+    amount: float = Field(..., gt=0, description="Valor da transação")
+    
+    @field_validator('amount')
+    @classmethod
+    def validate_amount(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError('O valor deve ser maior que zero')
+        return v
 
-class PixPaymentRequest(BaseModel):
-    transaction_amount: float
-    description: str
-    payer_email: str
+@app.post("/transaction")
+def create_transaction(transaction: WalletTransaction):
+    return {
+        "status": "success", 
+        "message": f"Transação de {transaction.amount} para {transaction.name} processada com sucesso."
+    }
 
 @app.get("/")
 def read_root():
-    return {"status": "API Crypto Wallet & PIX online!"}
-
-@app.post("/criar-pagamento-pix")
-def criar_pagamento_pix(payment: PixPaymentRequest):
-    try:
-        payment_data = {
-            "transaction_amount": float(payment.transaction_amount),
-            "description": str(payment.description),
-            "payment_method_id": "pix",
-            "payer": {
-                "email": str(payment.payer_email)
-            }
-        }
-
-        result = sdk.payment().create(payment_data)
-        payment_response = result.get("response", {})
-        
-        point_of_interaction = payment_response.get("point_of_interaction", {})
-        qr_data = point_of_interaction.get("transaction_data", {})
-
-        return {
-            "status": payment_response.get("status"),
-            "payment_id": payment_response.get("id"),
-            "qr_code": qr_data.get("qr_code"),
-            "qr_code_base64": qr_data.get("qr_code_base64"),
-            "ticket_url": qr_data.get("ticket_url")
-        }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return {"status": "online", "service": "Crypto Wallet & Mercado Pago API"}
