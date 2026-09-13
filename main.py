@@ -5,8 +5,6 @@ import os
 
 app = FastAPI()
 
-# Inicialize o SDK do Mercado Pago com seu token de acesso
-# (Você pode configurar a variável de ambiente MERCADOPAGO_ACCESS_TOKEN no Render)
 access_token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "SEU_ACCESS_TOKEN_AQUI")
 sdk = mercadopago.SDK(access_token)
 
@@ -23,18 +21,17 @@ def read_root():
 def criar_pagamento_pix(payment: PixPaymentRequest):
     try:
         payment_data = {
-            "transaction_amount": payment.transaction_amount,
-            "description": payment.description,
+            "transaction_amount": float(payment.transaction_amount),
+            "description": str(payment.description),
             "payment_method_id": "pix",
             "payer": {
-                "email": payment.payer_email
+                "email": str(payment.payer_email)
             }
         }
 
         result = sdk.payment().create(payment_data)
-        payment_response = result["response"]
+        payment_response = result.get("response", {})
         
-        # Retorna os dados essenciais para o cliente pagar via PIX (QR Code e Copia e Cola)
         point_of_interaction = payment_response.get("point_of_interaction", {})
         qr_data = point_of_interaction.get("transaction_data", {})
 
